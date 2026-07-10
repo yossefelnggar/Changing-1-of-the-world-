@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Change 1% | المنصة العالمية لإنقاذ الكوكب</title>
+
+    <!-- preconnect للمصادر الرئيسية عشان يبدأ التحميل أسرع -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://services.arcgisonline.com">
+
+    <!-- لازم نحدد المكان اللي هيدور فيه Cesium على ملفات الـ Workers/Assets بشكل صريح،
+         عشان auto-detect بتاعته بتفشل لو الصفحة اتفتحت مباشرة كملف (file://) -->
+    <script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@1.110.0/Build/Cesium/';</script>
+
+    <!-- CesiumJS (jsDelivr أكتر ثباتاً وسرعة من cesium.com في بعض الشبكات) -->
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.110.0/Build/Cesium/Cesium.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/cesium@1.110.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-glass: rgba(10, 15, 30, 0.7);
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --text: #ffffff;
+
+            --color-new: #f59e0b;
+            --color-review: #3b82f6;
+            --color-solved: #10b981;
+            --color-urgent: #ef4444;
+        }
+
+        /* ===== الوضع الفاتح (Light Mode) ===== */
+        body.light-mode {
+            --bg-glass: rgba(255, 255, 255, 0.88);
+            --border-glass: rgba(0, 0, 0, 0.08);
+            --text: #111827;
+        }
+        body.light-mode .form-control { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); color: #111827; }
+        body.light-mode .issue-card { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+        body.light-mode .issue-card:hover { background: rgba(0,0,0,0.05); }
+        body.light-mode .category-tag, body.light-mode .admin-pill, body.light-mode .theme-toggle-pill, body.light-mode .btn-secondary { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.1); color: #111827; }
+        body.light-mode .action-link { color: #111827; }
+        body.light-mode .comment-box { background: rgba(0,0,0,0.03); }
+        body.light-mode .toast { background: #ffffff; color: #111827; border-color: rgba(0,0,0,0.1); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+        body.light-mode .empty-state { opacity: 0.6; }
+        body.light-mode .timeline-dot { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.12); }
+        body.light-mode .progress-track { background: rgba(0,0,0,0.08); }
+        body.light-mode .autocomplete-list { background: #ffffff; border-color: rgba(0,0,0,0.1); color: #111827; }
+        body.light-mode .autocomplete-item:hover { background: rgba(0,0,0,0.05); }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+        body { background-color: #030712; color: var(--text); overflow: hidden; height: 100vh; }
+        button { font-family: inherit; }
+
+        #cesiumContainer { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+
+        /* ===== Layout ===== */
+        .app-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: grid; grid-template-columns: 400px 1fr; padding: 20px; gap: 20px; }
+        .interactive { pointer-events: auto; }
+
+        .glass-panel { background: var(--bg-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+
+        .sidebar { height: 95vh; gap: 14px; }
+        .logo-area { display: flex; justify-content: space-between; align-items: flex-start; }
+        .logo-area h1 { font-size: 1.6rem; font-weight: 900; background: linear-gradient(to right, #ffffff, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo-area p { font-size: 0.8rem; opacity: 0.6; margin-top: 2px; }
+
+        .admin-pill { font-size: 0.7rem; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+        .admin-pill.active { background: var(--accent); color: #04140f; border-color: var(--accent); font-weight: 700; }
+
+        .header-pills-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .theme-toggle-pill { font-size: 0.7rem; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+        .leaderboard-btn { font-size: 0.7rem; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+
+        .global-stats { position: absolute; top: 20px; right: 20px; display: flex; gap: 15px; z-index: 11; }
+        .stat-box { display: flex; align-items: center; gap: 10px; padding: 12px 20px; font-weight: bold; font-size: 0.9rem; }
+        .stat-box i { color: var(--accent); }
+
+        /* ===== Filters ===== */
+        .filters-row { display: flex; gap: 8px; }
+        .filters-row select, .filters-row input { font-size: 0.8rem; padding: 8px 10px; }
+        .search-input-wrap { position: relative; flex-grow: 1; }
+        .search-input-wrap i { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); opacity: 0.5; font-size: 0.8rem; }
+        .search-input-wrap input { padding-right: 28px; width: 100%; }
+        .autocomplete-list { position: absolute; top: 100%; right: 0; left: 0; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; margin-top: 6px; max-height: 220px; overflow-y: auto; z-index: 50; display: none; }
+        .autocomplete-list.show { display: block; }
+        .autocomplete-item { padding: 10px 14px; font-size: 0.85rem; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .autocomplete-item:hover { background: rgba(255,255,255,0.06); }
+        .autocomplete-item:last-child { border-bottom: none; }
+
+        /* ===== Feed ===== */
+        .feed-container { flex-grow: 1; overflow-y: auto; margin-top: 4px; padding-right: 5px; }
+        .feed-container::-webkit-scrollbar { width: 6px; }
+        .feed-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .empty-state { text-align: center; opacity: 0.5; font-size: 0.85rem; padding: 30px 10px; }
+
+        .issue-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 15px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease; position: relative; }
+        .issue-card:hover { border-color: var(--accent); transform: translateY(-2px); background: rgba(255, 255, 255, 0.06); }
+        .issue-card h4 { font-size: 1rem; margin-bottom: 5px; }
+        .issue-card .meta { font-size: 0.75rem; opacity: 0.6; display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .category-tag { font-size: 0.65rem; opacity: 0.7; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; }
+        .card-thumb { width: 100%; height: 110px; object-fit: cover; border-radius: 10px; margin-bottom: 8px; }
+
+        .badge { padding: 3px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: #fff; text-transform: uppercase; white-space: nowrap; }
+        .badge-new { background-color: var(--color-new); }
+        .badge-review { background-color: var(--color-review); }
+        .badge-solved { background-color: var(--color-solved); }
+        .badge-urgent { background-color: var(--color-urgent); }
+
+        .btn-primary { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+        .btn-secondary { background: rgba(255,255,255,0.06); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; width: 550px; max-width: 92vw; max-height: 85vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
+        .close-btn { cursor: pointer; opacity: 0.7; transition: 0.2s; flex-shrink: 0; }
+        .close-btn:hover { opacity: 1; color: var(--color-urgent); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; margin-bottom: 6px; opacity: 0.8; }
+        .form-control { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; color: white; font-size: 0.9rem; }
+        .form-control:focus { outline: none; border-color: var(--accent); }
+        .form-hint { font-size: 0.75rem; opacity: 0.5; margin-top: 4px; }
+
+        .image-preview { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; margin-top: 10px; display: none; }
+
+        .interaction-bar { display: flex; gap: 15px; margin: 20px 0; border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px 0; flex-wrap: wrap; }
+        .action-link { cursor: pointer; font-size: 0.9rem; opacity: 0.8; display: flex; align-items: center; gap: 6px; background: none; border: none; color: white; }
+        .action-link:hover { opacity: 1; color: var(--accent); }
+
+        .admin-controls { background: rgba(239,68,68,0.06); border: 1px dashed rgba(239,68,68,0.3); border-radius: 12px; padding: 12px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .admin-controls select { flex-grow: 1; }
+        .admin-controls-row { display: flex; gap: 10px; align-items: center; }
+        .admin-flags { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; }
+        .admin-flags label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+        /* ===== Timeline ===== */
+        .timeline-wrap { display: flex; justify-content: space-between; margin: 15px 0 20px; position: relative; }
+        .timeline-wrap::before { content: ''; position: absolute; top: 14px; right: 8%; left: 8%; height: 2px; background: rgba(255,255,255,0.12); z-index: 0; }
+        .timeline-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; position: relative; z-index: 1; }
+        .timeline-dot { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; }
+        .timeline-step.done .timeline-dot { background: var(--accent); border-color: var(--accent); color: #04140f; }
+        .timeline-step .timeline-label { font-size: 0.62rem; opacity: 0.6; text-align: center; max-width: 70px; }
+        .timeline-step.done .timeline-label { opacity: 1; font-weight: 700; }
+
+        /* ===== Progress Bar ===== */
+        .progress-track { width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width 0.4s ease; }
+        .progress-label { font-size: 0.7rem; opacity: 0.6; display: flex; justify-content: space-between; margin-bottom: 6px; }
+
+        /* ===== Impact Box ===== */
+        .impact-box { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: 12px; padding: 12px 15px; margin-bottom: 15px; font-size: 0.85rem; line-height: 1.6; }
+        .impact-box .impact-title { color: var(--accent); font-weight: 700; font-size: 0.8rem; margin-bottom: 4px; display: block; }
+
+        /* ===== Verified Badge ===== */
+        .verified-badge { font-size: 0.65rem; background: rgba(59,130,246,0.15); color: #93c5fd; padding: 3px 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+
+        /* ===== Leaderboard ===== */
+        .leaderboard-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem; }
+        .leaderboard-row:last-child { border-bottom: none; }
+        .leaderboard-rank { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; flex-shrink: 0; }
+        .leaderboard-country { display: flex; align-items: center; gap: 10px; }
+        .leaderboard-stats { font-size: 0.75rem; opacity: 0.7; }
+
+        .comments-section { margin-top: 15px; }
+        .comment-box { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 8px; border-right: 3px solid var(--accent); }
+        .comment-time { font-size: 0.65rem; opacity: 0.5; margin-top: 4px; display: block; }
+
+        .detail-image { width: 100%; max-height: 220px; object-fit: cover; border-radius: 14px; margin-bottom: 15px; }
+
+        .backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 99; }
+
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #111827; border: 1px solid rgba(255,255,255,0.15); padding: 12px 20px; border-radius: 12px; font-size: 0.85rem; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(-8px); }
+
+        /* ===== Mobile toggle for sidebar ===== */
+        .mobile-toggle { display: none; position: absolute; bottom: 20px; right: 20px; z-index: 12; width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: white; border: none; font-size: 1.2rem; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 860px) {
+            .app-container { grid-template-columns: 1fr; padding: 0; gap: 0; }
+            .sidebar { position: fixed; bottom: 0; left: 0; right: 0; top: auto; height: 70vh; width: 100%; border-radius: 24px 24px 0 0; transform: translateY(100%); transition: transform 0.3s ease; z-index: 15; }
+            .sidebar.open { transform: translateY(0); }
+            .global-stats { top: 12px; right: 12px; left: 12px; justify-content: space-between; }
+            .stat-box { padding: 8px 10px; font-size: 0.7rem; gap: 6px; flex-direction: column; text-align: center; }
+            .mobile-toggle { display: flex; }
+            .modal { width: 92vw; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- العرض ثلاثي الأبعاد لكوكب الأرض -->
+    <div id="cesiumContainer"></div>
+
+    <div id="globeLoader" style="position:fixed; inset:0; z-index:9998; background:#030712; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; transition:opacity .5s ease;">
+        <div style="width:52px; height:52px; border-radius:50%; border:3px solid rgba(16,185,129,0.15); border-top-color:#10b981; animation:globeSpin 0.9s linear infinite;"></div>
+        <div style="color:#fff; font-family:'Cairo',sans-serif; font-size:0.95rem; opacity:0.85;">جاري تحميل الكرة الأرضية...</div>
+    </div>
+    <style>@keyframes globeSpin { to { transform: rotate(360deg); } }</style>
+
+    <div id="fatalErrorBox" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#ef4444; color:#fff; padding:14px 18px; font-family:monospace; font-size:13px; direction:ltr; text-align:left; white-space:pre-wrap; max-height:40vh; overflow-y:auto;"></div>
+    <script>
+        window.addEventListener('error', function (e) {
+            var box = document.getElementById('fatalErrorBox');
+            if (!box) return;
+            box.style.display = 'block';
+            box.textContent += '❌ ' + (e.message || 'خطأ غير معروف') + '  [' + (e.filename || '') + ':' + (e.lineno || '') + ']\n';
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            var box = document.getElementById('fatalErrorBox');
+            if (!box) return;
+            box.style.display = 'block';
+            box.textContent += '❌ Promise rejected: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '\n';
+        });
+    </script>
+
+    <div class="app-container">
+        <!-- القائمة الجانبية لإدارة وتغذية البيانات الحية -->
+        <div class="sidebar glass-panel interactive" id="sidebarPanel">
+            <div class="logo-area">
+                <div>
+                    <h1>CHANGE 1%</h1>
+                    <p>خريطة التضامن والتغيير العالمي</p>
+                </div>
+                <div class="header-pills-row">
+                    <div class="leaderboard-btn" id="leaderboardBtn"><i class="fa-solid fa-trophy"></i></div>
+                    <div class="theme-toggle-pill" id="themeToggleBtn"><i class="fa-solid fa-circle-half-stroke" id="themeToggleIcon"></i></div>
+                    <div class="admin-pill" id="adminPillBtn"><i class="fa-solid fa-user-shield"></i> <span id="adminPillText">دخول الإدارة</span></div>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="openReportModalBtn">
+                <i class="fa-solid fa-bullhorn"></i> توثيق بلاغ إنساني جديد
+            </button>
+
+            <div class="filters-row">
+                <div class="search-input-wrap">
+                    <input type="text" class="form-control" id="searchInput" placeholder="ابحث في القضايا..." autocomplete="off">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <div class="autocomplete-list" id="autocompleteList"></div>
+                </div>
+            </div>
+            <div class="filters-row">
+                <select class="form-control" id="categoryFilter">
+                    <option value="all">كل التصنيفات</option>
+                    <option value="إنسانية">🧑‍🤝‍🧑 إنسانية</option>
+                    <option value="بيئية">🌍 بيئية</option>
+                    <option value="صحية">🏥 صحية</option>
+                    <option value="تعليمية">📚 تعليمية</option>
+                </select>
+                <select class="form-control" id="statusFilter">
+                    <option value="all">كل الحالات</option>
+                    <option value="جديدة">🟠 جديدة</option>
+                    <option value="عاجلة">🔴 عاجلة</option>
+                    <option value="قيد المراجعة">🔵 قيد المراجعة</option>
+                    <option value="تم حلها">🟢 تم حلها</option>
+                </select>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1)">
+
+            <h3 style="font-size: 1.1rem; font-weight: 700;">🚨 قضايا نشطة الآن</h3>
+            <div class="feed-container" id="liveIssuesFeed">
+                <!-- يتم توليد محتوى التغذية الحية تلقائياً عبر جافا سكريبت -->
+            </div>
+        </div>
+
+        <!-- العدادات العالمية المباشرة بأعلى الشاشة -->
+        <div class="global-stats interactive">
+            <div class="stat-box glass-panel"><i class="fa-solid fa-earth-americas"></i> <span id="totalIssuesCount">0</span> قضايا</div>
+            <div class="stat-box glass-panel"><i class="fa-solid fa-heart"></i> <span id="solvedIssuesCount">0</span> حُلّت</div>
+            <div class="stat-box glass-panel"><i class="fa-solid fa-globe"></i> <span id="countriesCount">0</span> دول</div>
+        </div>
+
+        <button class="mobile-toggle interactive" id="mobileToggleBtn"><i class="fa-solid fa-list"></i></button>
+    </div>
+
+    <div class="backdrop" id="modalBackdrop"></div>
+
+    <!-- نافذة تفاصيل القضية الشاملة -->
+    <div class="modal glass-panel interactive" id="issueDetailModal">
+        <div class="modal-header">
+            <h2 id="modalIssueTitle" style="font-size: 1.3rem;">عنوان القضية</h2>
+            <i class="fa-solid fa-xmark fa-lg close-btn" id="closeDetailModalBtn"></i>
+        </div>
+
+        <img id="modalIssueImage" class="detail-image" style="display:none;" alt="صورة القضية">
+
+        <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; align-items: center;">
+            <span class="badge" id="modalIssueStatus">جديدة</span>
+            <span class="category-tag" id="modalIssueCategory"></span>
+            <span class="verified-badge" id="modalVerifiedBadge" style="display:none;"><i class="fa-solid fa-circle-check"></i> موثّق</span>
+        </div>
+        <p style="font-size: 0.75rem; opacity: 0.6; margin-bottom: 12px;"><i class="fa-solid fa-location-dot"></i> <span id="modalIssueAddress">جاري جلب العنوان...</span></p>
+        <p id="modalIssueDescription" style="font-size: 0.95rem; line-height: 1.6; opacity: 0.9; margin-bottom: 15px;">تفاصيل الشرح...</p>
+
+        <!-- شريط تقدّم القضية -->
+        <div class="progress-label"><span>مسار القضية</span><span id="modalProgressPercent">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="modalProgressFill" style="width:0%;"></div></div>
+
+        <!-- Timeline مراحل القضية -->
+        <div class="timeline-wrap" id="modalTimeline"></div>
+
+        <!-- صندوق الأثر الملموس: يظهر فقط للقضايا التي تم حلها ولها أثر مسجل -->
+        <div class="impact-box" id="modalImpactBox" style="display:none;">
+            <span class="impact-title">🎯 الأثر الملموس</span>
+            <span id="modalImpactText"></span>
+        </div>
+
+        <!-- لوحة تحكم الأدمن: تظهر فقط بعد تسجيل الدخول -->
+        <div class="admin-controls" id="adminControlsBox" style="display:none;">
+            <div class="admin-flags">
+                <label><input type="checkbox" id="adminVerifiedCheck"> تم التحقق</label>
+                <label><input type="checkbox" id="adminVolunteerCheck"> وصل متطوع</label>
+                <label><input type="checkbox" id="adminImplementingCheck"> جاري التنفيذ</label>
+            </div>
+            <div class="admin-controls-row">
+                <select class="form-control" id="adminStatusSelect">
+                    <option value="جديدة">🟠 جديدة</option>
+                    <option value="عاجلة">🔴 عاجلة</option>
+                    <option value="قيد المراجعة">🔵 قيد المراجعة</option>
+                    <option value="تم حلها">🟢 تم حلها</option>
+                </select>
+                <button class="btn-danger" id="adminDeleteBtn"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <textarea class="form-control" id="adminImpactInput" rows="2" placeholder="اكتب الأثر الملموس بعد الحل، مثال: 120 شخصًا استفادوا وزراعة 50 شجرة..."></textarea>
+            <button class="btn-secondary" id="adminSaveImpactBtn">حفظ الأثر</button>
+        </div>
+
+        <!-- نظام التصويت السريع والدعم -->
+        <div class="interaction-bar">
+            <button class="action-link" id="upvoteBtn"><i class="fa-regular fa-circle-up"></i> أدعم هذه القضية (<span id="modalUpvotesCount">0</span>)</button>
+            <button class="action-link" id="shareBtn"><i class="fa-solid fa-share-nodes"></i> مشاركة الرابط</button>
+        </div>
+
+        <!-- نظام التعليقات الحية والمجتمع -->
+        <h3>💬 مجتمع التضامن الميداني</h3>
+        <div class="form-group" style="margin-top: 10px; display: flex; gap: 10px;">
+            <input type="text" class="form-control" id="commentInput" placeholder="أكتب كيف يمكنك المساعدة في هذه القضية...">
+            <button class="btn-primary" id="submitCommentBtn" style="padding: 10px 20px;">إرسال</button>
+        </div>
+        <div class="comments-section" id="modalCommentsContainer"></div>
+    </div>
+
+    <!-- نافذة إضافة بلاغ جديد بالتحديد الجغرافي ذكي -->
+    <div class="modal glass-panel interactive" id="newReportModal">
+        <div class="modal-header">
+            <h2 style="font-size: 1.3rem;">وثّق قضية إنسانية أو بيئية</h2>
+            <i class="fa-solid fa-xmark fa-lg close-btn" id="closeReportModalBtn"></i>
+        </div>
+        <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 15px; color: var(--color-new);"><i class="fa-solid fa-circle-info"></i> اضغط أولاً على كوكب الأرض لتحديد الموقع الجغرافي للمشكلة تلقائياً قبل الحفظ.</p>
+
+        <div class="form-group">
+            <label>الموقع المختار بالإحداثيات</label>
+            <input type="text" class="form-control" id="newCoordsInput" readonly placeholder="انقر على الكرة الأرضية لتثبيت الإحداثيات">
+        </div>
+        <div class="form-group">
+            <label>عنوان القضية المباشر</label>
+            <input type="text" class="form-control" id="newTitleInput" placeholder="مثال: نقص مياه شرب نظيفة في القرية">
+        </div>
+        <div class="form-group">
+            <label>تصنيف القضية</label>
+            <select class="form-control" id="newCategoryInput">
+                <option value="إنسانية">🧑‍🤝‍🧑 إنسانية</option>
+                <option value="بيئية">🌍 بيئية</option>
+                <option value="صحية">🏥 صحية</option>
+                <option value="تعليمية">📚 تعليمية</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>الوصف التفصيلي والاحتياجات</label>
+            <textarea class="form-control" id="newDescInput" rows="4" placeholder="اشرح المشكلة بالتفصيل وكيف يمكن للمتطوعين أو الجمعيات المساعدة..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>درجة خطورة الحالة</label>
+            <select class="form-control" id="newStatusInput">
+                <option value="جديدة">🟠 عادية / جديدة</option>
+                <option value="عاجلة">🔴 طارئة / عاجلة جداً</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>صورة داعمة للبلاغ (اختياري)</label>
+            <input type="file" accept="image/*" class="form-control" id="newImageInput">
+            <p class="form-hint">الصورة بتزود مصداقية البلاغ وتساعد المتطوعين يفهموا الموقف بسرعة.</p>
+            <img id="newImagePreview" class="image-preview">
+        </div>
+        <button class="btn-primary" id="saveNewIssueBtn" style="width: 100%; margin-top: 10px;">
+            <span id="saveBtnLabel">نشر القضية على الخريطة العالمية</span>
+        </button>
+    </div>
+
+    <!-- نافذة تسجيل دخول الأدمن (بسيطة - راجع ملاحظات الأمان في التعليقات) -->
+    <div class="modal glass-panel interactive" id="adminLoginModal" style="width: 380px;">
+        <div class="modal-header">
+            <h2 style="font-size: 1.2rem;">دخول فريق الإدارة</h2>
+            <i class="fa-solid fa-xmark fa-lg close-btn" id="closeAdminModalBtn"></i>
+        </div>
+        <div class="form-group">
+            <label>كلمة المرور</label>
+            <input type="password" class="form-control" id="adminPasswordInput" placeholder="••••••••">
+        </div>
+        <button class="btn-primary" id="adminLoginSubmitBtn" style="width:100%;">دخول</button>
+    </div>
+
+    <!-- نافذة لوحة الصدارة العالمية -->
+    <div class="modal glass-panel interactive" id="leaderboardModal" style="width: 420px;">
+        <div class="modal-header">
+            <h2 style="font-size: 1.2rem;">🏆 لوحة الصدارة العالمية</h2>
+            <i class="fa-solid fa-xmark fa-lg close-btn" id="closeLeaderboardModalBtn"></i>
+        </div>
+        <p style="font-size: 0.8rem; opacity: 0.6; margin-bottom: 15px;">أكثر الدول مساهمة في توثيق القضايا والمساعدة على حلها.</p>
+        <div id="leaderboardContent"></div>
+    </div>
+
+    <div class="toast" id="toastBox"></div>
+
+    <!-- Firebase Modules Configuration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ==========================================================
+        // إعدادات المشروع - غيّرها قبل النشر
+        // ==========================================================
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // مفتاح ImgBB لرفع الصور (مجاني من https://api.imgbb.com/)
+        const IMGBB_API_KEY = "YOUR_IMGBB_API_KEY";
+
+        // ⚠️ ملاحظة أمان مهمة (مهم جداً لأي حد هيفتح المشروع كـ Open Source):
+        // الحماية دي بسيطة جداً (كلمة مرور ثابتة بالمتصفح) وغرضها منع العبث العرضي فقط،
+        // مش حماية حقيقية ضد مهاجم مصمم. للإنتاج الفعلي، استبدلها بـ Firebase Authentication
+        // (Email/Password أو Google) واستخدم Firebase Security Rules للتحقق من صلاحية
+        // الأدمن على مستوى السيرفر، لأن أي شخص يقدر يفتح Developer Tools ويشوف/يغيّر القيمة دي.
+        const ADMIN_PASSWORD = "changeme123";
+
+        // تأكد إن قواعد قاعدة البيانات (Firebase Realtime Database Rules) مش مفتوحة بالكامل.
+        // مثال لقواعد أساسية آمنة أكتر من الوضع الافتراضي:
+        // {
+        //   "rules": {
+        //     "global_issues": {
+        //       ".read": true,
+        //       ".write": true,
+        //       "$issue_id": { "upvotes": { ".validate": "newData.isNumber()" } }
+        //     }
+        //   }
+        // }
+        // ==========================================================
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // مفيش Ion Access Token هنا، فلازم نمنع Cesium إنه يحاول
+        // يجيب أي طبقة تضاريس أو صور افتراضية من Cesium Ion (ده كان سبب توقف الكرة)
+        Cesium.Ion.defaultAccessToken = undefined;
+
+        // تشغيل محرك كوكب الأرض الافتراضي بمستوى معالجة عالي وسلس
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            geocoder: false, homeButton: false, sceneModePicker: false,
+            baseLayerPicker: false, navigationHelpButton: false, animation: false,
+            timeline: false, creditContainer: document.createElement('div'),
+            baseLayer: false, // منع Cesium من تحميل طبقة الصور الافتراضية (بتحتاج Ion token)
+            terrainProvider: new Cesium.EllipsoidTerrainProvider() // كرة أرضية ناعمة، متعتمدش على Ion
+        });
+
+        const imageryLayers = viewer.imageryLayers;
+        imageryLayers.removeAll();
+        // ملحوظة مهمة: في Cesium 1.110 اتشال الـ constructor القديم لـ
+        // ArcGisMapServerImageryProvider، ولازم نستخدم fromUrl() (async) بدالها.
+        // ده كان هو السبب الحقيقي في توقف الكرة عن الظهور.
+        (async () => {
+            try {
+                const provider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                    'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+                );
+                imageryLayers.addImageryProvider(provider);
+            } catch (err) {
+                console.error('فشل تحميل طبقة الصور من ArcGIS:', err);
+            } finally {
+                // نخفي شاشة التحميل أول ما نحاول نعرض الصور (نجحت أو فشلت)
+                // بدل ما نسيب اليوزر مستني قدام شاشة سودة من غير أي فيدباك
+                const loader = document.getElementById('globeLoader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+            }
+        })();
+
+        let activeCoords = null;
+        let currentViewingIssueId = null;
+        let allEntitiesMap = {};
+        let rawIssuesData = {};
+        let selectedImageBase64 = null;
+        let isAdmin = sessionStorage.getItem('change1_isAdmin') === 'true';
+
+        // ---------- إدارة الوضع الليلي / النهاري / التلقائي ----------
+        // القيم الممكنة: 'dark', 'light', 'auto'
+        let themePref = localStorage.getItem('change1_theme') || 'auto';
+
+        function applyTheme() {
+            let resolvedLight = false;
+            if (themePref === 'light') resolvedLight = true;
+            else if (themePref === 'dark') resolvedLight = false;
+            else resolvedLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+            document.body.classList.toggle('light-mode', resolvedLight);
+
+            const icon = document.getElementById('themeToggleIcon');
+            if (themePref === 'dark') icon.className = 'fa-solid fa-moon';
+            else if (themePref === 'light') icon.className = 'fa-solid fa-sun';
+            else icon.className = 'fa-solid fa-circle-half-stroke';
+        }
+        applyTheme();
+
+        document.getElementById('themeToggleBtn').onclick = () => {
+            themePref = themePref === 'auto' ? 'light' : themePref === 'light' ? 'dark' : 'auto';
+            localStorage.setItem('change1_theme', themePref);
+            applyTheme();
+            const labels = { auto: 'وضع تلقائي 🌓', light: 'الوضع الفاتح ☀️', dark: 'الوضع الداكن 🌙' };
+            showToast(labels[themePref]);
+        };
+
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+            if (themePref === 'auto') applyTheme();
+        });
+
+        // ---------- أدوات مساعدة عامة ----------
+        function showToast(msg) {
+            const t = document.getElementById('toastBox');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2600);
+        }
+
+        function timeAgo(timestamp) {
+            if (!timestamp) return '';
+            const diff = Math.floor((Date.now() - timestamp) / 1000);
+            if (diff < 60) return 'الآن';
+            if (diff < 3600) return `منذ ${Math.floor(diff / 60)} دقيقة`;
+            if (diff < 86400) return `منذ ${Math.floor(diff / 3600)} ساعة`;
+            return `منذ ${Math.floor(diff / 86400)} يوم`;
+        }
+
+        function badgeClassForStatus(status) {
+            if (status === 'عاجلة') return 'badge-urgent';
+            if (status === 'قيد المراجعة') return 'badge-review';
+            if (status === 'تم حلها') return 'badge-solved';
+            return 'badge-new';
+        }
+
+        function markerColorForStatus(status) {
+            if (status === 'عاجلة') return Cesium.Color.fromCssColorString('#ef4444');
+            if (status === 'قيد المراجعة') return Cesium.Color.fromCssColorString('#3b82f6');
+            if (status === 'تم حلها') return Cesium.Color.fromCssColorString('#10b981');
+            return Cesium.Color.fromCssColorString('#f59e0b');
+        }
+
+        // ---------- مراحل تتبع القضية (Timeline) وحساب نسبة التقدم ----------
+        function getTimelineStages(issue) {
+            return [
+                { key: 'created', label: 'تم الإنشاء', icon: 'fa-flag', done: true },
+                { key: 'verified', label: 'تم التحقق', icon: 'fa-magnifying-glass', done: !!issue.verified },
+                { key: 'volunteerArrived', label: 'وصل متطوع', icon: 'fa-person-walking', done: !!issue.volunteerArrived },
+                { key: 'implementing', label: 'جاري التنفيذ', icon: 'fa-hammer', done: !!issue.implementing },
+                { key: 'solved', label: 'تم الحل', icon: 'fa-circle-check', done: issue.status === 'تم حلها' }
+            ];
+        }
+
+        function renderTimeline(issue) {
+            const stages = getTimelineStages(issue);
+            const wrap = document.getElementById('modalTimeline');
+            wrap.innerHTML = stages.map(s => `
+                <div class="timeline-step ${s.done ? 'done' : ''}">
+                    <div class="timeline-dot"><i class="fa-solid ${s.icon}"></i></div>
+                    <span class="timeline-label">${s.label}</span>
+                </div>
+            `).join('');
+
+            const doneCount = stages.filter(s => s.done).length;
+            const percent = Math.round((doneCount / stages.length) * 100);
+            document.getElementById('modalProgressFill').style.width = `${percent}%`;
+            document.getElementById('modalProgressPercent').innerText = `${percent}%`;
+        }
+
+        // ---------- لوحة الصدارة العالمية (حسب الدولة) ----------
+        function renderLeaderboard() {
+            const countryStats = {};
+            for (const id in rawIssuesData) {
+                const issue = rawIssuesData[id];
+                let country = 'غير محدد';
+                if (issue.address && issue.address.includes('-')) {
+                    country = issue.address.split('-')[0].replace('📍', '').trim() || 'غير محدد';
+                }
+                if (!countryStats[country]) countryStats[country] = { total: 0, solved: 0 };
+                countryStats[country].total++;
+                if (issue.status === 'تم حلها') countryStats[country].solved++;
+            }
+
+            const sorted = Object.entries(countryStats)
+                .filter(([name]) => name !== 'غير محدد')
+                .sort((a, b) => b[1].solved - a[1].solved || b[1].total - a[1].total)
+                .slice(0, 10);
+
+            const container = document.getElementById('leaderboardContent');
+            if (sorted.length === 0) {
+                container.innerHTML = '<div class="empty-state">لا توجد بيانات كافية بعد لعرض الصدارة</div>';
+                return;
+            }
+
+            container.innerHTML = sorted.map(([country, stats], i) => `
+                <div class="leaderboard-row">
+                    <div class="leaderboard-country">
+                        <div class="leaderboard-rank">${i + 1}</div>
+                        <span>${escapeHTML(country)}</span>
+                    </div>
+                    <div class="leaderboard-stats">🟢 ${stats.solved} محلولة / 🌍 ${stats.total} إجمالي</div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('leaderboardBtn').onclick = () => {
+            renderLeaderboard();
+            openModal('leaderboardModal');
+        };
+        document.getElementById('closeLeaderboardModalBtn').onclick = closeAllModals;
+
+        // ---------- التحقق من الأدمن ----------
+        function refreshAdminUI() {
+            document.getElementById('adminPillText').innerText = isAdmin ? 'وضع الإدارة نشط' : 'دخول الإدارة';
+            document.getElementById('adminPillBtn').classList.toggle('active', isAdmin);
+        }
+        refreshAdminUI();
+
+        document.getElementById('adminPillBtn').onclick = () => {
+            if (isAdmin) {
+                isAdmin = false;
+                sessionStorage.removeItem('change1_isAdmin');
+                refreshAdminUI();
+                showToast('تم الخروج من وضع الإدارة');
+            } else {
+                openModal('adminLoginModal');
+            }
+        };
+        document.getElementById('closeAdminModalBtn').onclick = closeAllModals;
+        document.getElementById('adminLoginSubmitBtn').onclick = () => {
+            const val = document.getElementById('adminPasswordInput').value;
+            if (val === ADMIN_PASSWORD) {
+                isAdmin = true;
+                sessionStorage.setItem('change1_isAdmin', 'true');
+                refreshAdminUI();
+                closeAllModals();
+                document.getElementById('adminPasswordInput').value = '';
+                showToast('تم تسجيل الدخول كأدمن ✅');
+            } else {
+                showToast('كلمة المرور غير صحيحة');
+            }
+        };
+
+        // 1. معالجة النقرات على الكرة الأرضية لاستخراج الإحداثيات الجغرافية بدقة
+        const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handler.setInputAction((click) => {
+            const ray = viewer.camera.getPickRay(click.position);
+            const earthPosition = viewer.scene.globe.pick(ray, viewer.scene);
+
+            if (Cesium.defined(earthPosition)) {
+                const cartographic = Cesium.Cartographic.fromCartesian(earthPosition);
+                const lng = Cesium.Math.toDegrees(cartographic.longitude);
+                const lat = Cesium.Math.toDegrees(cartographic.latitude);
+
+                activeCoords = { lat: lat, lng: lng };
+                document.getElementById('newCoordsInput').value = `شمال: ${lat.toFixed(4)}° | شرق: ${lng.toFixed(4)}°`;
+
+                openModal('newReportModal');
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        // 2. دالة الـ Reverse Geocoding لتحويل الإحداثيات لعنوان بشري حقيقي (مع كاش بسيط لتقليل الطلبات)
+        const addressCache = new Map();
+        async function fetchHumanReadableAddress(lat, lng) {
+            const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+            if (addressCache.has(cacheKey)) return addressCache.get(cacheKey);
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, {
+                    headers: { 'User-Agent': 'Change1PercentGlobalPlatform' }
+                });
+                const data = await res.json();
+                let result;
+                if (data && data.address) {
+                    const country = data.address.country || '';
+                    const city = data.address.city || data.address.town || data.address.state || '';
+                    const suburb = data.address.suburb || data.address.neighbourhood || '';
+                    result = `📍 ${country} - ${city}${suburb ? ' | ' + suburb : ''}`;
+                } else {
+                    result = "📍 منطقة غير مأهولة بالسكان أو مياه دولية";
+                }
+                addressCache.set(cacheKey, result);
+                return result;
+            } catch (e) {
+                return `📍 إحداثيات (شمال: ${lat.toFixed(2)} | شرق: ${lng.toFixed(2)})`;
+            }
+        }
+
+        // 2.b رفع الصورة إلى ImgBB وإرجاع الرابط النهائي
+        async function uploadImageToImgBB(base64Data) {
+            if (!base64Data || IMGBB_API_KEY === "YOUR_IMGBB_API_KEY") return null;
+            try {
+                const formData = new FormData();
+                formData.append('image', base64Data.split(',')[1]);
+                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                return data?.data?.url || null;
+            } catch (e) {
+                console.error('فشل رفع الصورة:', e);
+                return null;
+            }
+        }
+
+        // ضغط الصورة قبل أي استخدام: بيصغّر أبعادها لحد أقصى 1280px وبيحولها لـ JPEG
+        // بجودة 0.72، عشان الحجم يبقى أخف بكتير (غالباً أقل من 200-300 كيلوبايت)
+        // بدل ما يفضل الملف الأصلي زي ما هو (ممكن يبقى كام ميجا من الموبايل).
+        function compressImage(file, maxDimension = 1280, quality = 0.72) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const reader = new FileReader();
+                reader.onload = () => { img.src = reader.result; };
+                reader.onerror = reject;
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round(height * (maxDimension / width));
+                            width = maxDimension;
+                        } else {
+                            width = Math.round(width * (maxDimension / height));
+                            height = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        document.getElementById('newImageInput').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const preview = document.getElementById('newImagePreview');
+            try {
+                selectedImageBase64 = await compressImage(file);
+                preview.src = selectedImageBase64;
+                preview.style.display = 'block';
+            } catch (err) {
+                console.error('فشل ضغط الصورة:', err);
+                showToast('تعذّر معالجة الصورة، جرّب صورة تانية', 'error');
+            }
+        };
+
+        // 3. المزامنة المباشرة وقراءة البيانات الحية من قاعدة بيانات Firebase
+        onValue(ref(db, 'global_issues'), (snapshot) => {
+            rawIssuesData = snapshot.val() || {};
+            renderFeedAndMap();
+        });
+
+        // ---------- رسم الخريطة + القائمة الجانبية مع تطبيق الفلاتر ----------
+        function renderFeedAndMap() {
+            const feed = document.getElementById('liveIssuesFeed');
+            feed.innerHTML = '';
+            viewer.entities.removeAll();
+            allEntitiesMap = {};
+
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+            const categoryFilterVal = document.getElementById('categoryFilter').value;
+            const statusFilterVal = document.getElementById('statusFilter').value;
+
+            let total = 0, solved = 0;
+            let uniqueCountries = new Set();
+            let visibleCount = 0;
+
+            const entries = Object.entries(rawIssuesData).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+
+            for (const [id, issue] of entries) {
+                total++;
+                if (issue.status === 'تم حلها') solved++;
+                if (issue.address && issue.address.includes('-')) {
+                    uniqueCountries.add(issue.address.split('-')[0].replace('📍', '').trim());
+                }
+
+                // إضافة الدبوس على الخريطة دايمًا (بغض النظر عن الفلتر) عشان الخريطة تفضل كاملة
+                const entity = viewer.entities.add({
+                    id: id,
+                    position: Cesium.Cartesian3.fromDegrees(issue.lng, issue.lat),
+                    point: {
+                        pixelSize: issue.status === 'عاجلة' ? 18 : 14,
+                        color: markerColorForStatus(issue.status),
+                        outlineColor: Cesium.Color.WHITE,
+                        outlineWidth: 2
+                    }
+                });
+                allEntitiesMap[id] = entity;
+
+                // تطبيق الفلاتر على القائمة الجانبية فقط
+                const matchesSearch = !searchTerm || (issue.title || '').toLowerCase().includes(searchTerm) || (issue.description || '').toLowerCase().includes(searchTerm);
+                const matchesCategory = categoryFilterVal === 'all' || issue.category === categoryFilterVal;
+                const matchesStatus = statusFilterVal === 'all' || issue.status === statusFilterVal;
+                if (!matchesSearch || !matchesCategory || !matchesStatus) continue;
+
+                visibleCount++;
+                const card = document.createElement('div');
+                card.className = 'issue-card';
+
+                const stagesForCard = getTimelineStages(issue);
+                const cardProgress = Math.round((stagesForCard.filter(s => s.done).length / stagesForCard.length) * 100);
+
+                card.innerHTML = `
+                    ${issue.image ? `<img src="${issue.image}" class="card-thumb" alt="" loading="lazy" decoding="async">` : ''}
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                        <h4>${escapeHTML(issue.title)} ${issue.verified ? '<i class="fa-solid fa-circle-check" style="color:#3b82f6; font-size:0.8rem;" title="موثّق"></i>' : ''}</h4>
+                        <span class="badge ${badgeClassForStatus(issue.status)}">${issue.status}</span>
+                    </div>
+                    <p style="font-size:0.8rem; opacity:0.7; margin-top:5px;">${escapeHTML((issue.description || '').substring(0, 75))}...</p>
+                    <div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${cardProgress}%;"></div></div>
+                    ${issue.status === 'تم حلها' && issue.impactText ? `<div class="impact-box" style="margin: 8px 0 0; padding: 8px 10px; font-size:0.75rem;"><span class="impact-title" style="font-size:0.7rem;">🎯 الأثر</span>${escapeHTML(issue.impactText)}</div>` : ''}
+                    <div class="meta">
+                        <span><i class="fa-solid fa-location-dot"></i> ${issue.address || 'جاري التحديد...'}</span>
+                        <span class="category-tag">${issue.category || 'عام'}</span>
+                        <span style="margin-right:auto; display:flex; align-items:center; gap:8px;">
+                            <span><i class="fa-solid fa-circle-up"></i> ${issue.upvotes || 0}</span>
+                            <span>${timeAgo(issue.timestamp)}</span>
+                        </span>
+                    </div>
+                `;
+
+                card.onclick = () => focusAndFlyToIssue(id, issue);
+                feed.appendChild(card);
+            }
+
+            if (visibleCount === 0) {
+                feed.innerHTML = '<div class="empty-state">لا توجد قضايا مطابقة لبحثك حالياً</div>';
+            }
+
+            document.getElementById('totalIssuesCount').innerText = total;
+            document.getElementById('solvedIssuesCount').innerText = solved;
+            document.getElementById('countriesCount').innerText = uniqueCountries.size || (total ? 1 : 0);
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.innerText = str || '';
+            return div.innerHTML;
+        }
+
+        ['searchInput'].forEach(id => document.getElementById(id).addEventListener('input', renderFeedAndMap));
+        ['categoryFilter', 'statusFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderFeedAndMap));
+
+        // ---------- الاقتراحات التلقائية أثناء البحث (Autocomplete) ----------
+        const searchInputEl = document.getElementById('searchInput');
+        const autocompleteListEl = document.getElementById('autocompleteList');
+
+        searchInputEl.addEventListener('input', () => {
+            const term = searchInputEl.value.trim().toLowerCase();
+            if (!term) { autocompleteListEl.classList.remove('show'); return; }
+
+            const matches = Object.values(rawIssuesData)
+                .filter(issue => (issue.title || '').toLowerCase().includes(term))
+                .slice(0, 6);
+
+            if (matches.length === 0) { autocompleteListEl.classList.remove('show'); return; }
+
+            autocompleteListEl.innerHTML = matches.map(issue => `
+                <div class="autocomplete-item">${escapeHTML(issue.title)} <span style="opacity:0.5; font-size:0.75rem;">— ${issue.address || ''}</span></div>
+            `).join('');
+            autocompleteListEl.classList.add('show');
+
+            Array.from(autocompleteListEl.children).forEach((el, i) => {
+                el.onclick = () => {
+                    searchInputEl.value = matches[i].title;
+                    autocompleteListEl.classList.remove('show');
+                    renderFeedAndMap();
+                };
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-input-wrap')) autocompleteListEl.classList.remove('show');
+        });
+
+        // تجربة الانتقال السينمائي المباشر لمركز القضية على الكوكب وعرض تفاصيلها
+        function focusAndFlyToIssue(id, issue) {
+            currentViewingIssueId = id;
+            const targetEntity = allEntitiesMap[id];
+
+            viewer.flyTo(targetEntity, {
+                offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(0), Cesium.Math.toRadians(-45), 15000)
+            });
+
+            document.getElementById('modalIssueTitle').innerText = issue.title;
+            document.getElementById('modalIssueDescription').innerText = issue.description;
+            document.getElementById('modalIssueAddress').innerText = issue.address || "غير محدد بدقة";
+            document.getElementById('modalUpvotesCount').innerText = issue.upvotes || 0;
+            document.getElementById('modalIssueCategory').innerText = issue.category || 'عام';
+
+            const imgEl = document.getElementById('modalIssueImage');
+            if (issue.image) { imgEl.src = issue.image; imgEl.style.display = 'block'; }
+            else { imgEl.style.display = 'none'; }
+
+            const statusBadge = document.getElementById('modalIssueStatus');
+            statusBadge.className = `badge ${badgeClassForStatus(issue.status)}`;
+            statusBadge.innerText = issue.status;
+
+            // علامة التوثيق
+            document.getElementById('modalVerifiedBadge').style.display = issue.verified ? 'inline-flex' : 'none';
+
+            // مسار القضية (Timeline) وشريط التقدم
+            renderTimeline(issue);
+
+            // صندوق الأثر الملموس (يظهر فقط لو القضية محلولة ومسجل لها أثر)
+            const impactBox = document.getElementById('modalImpactBox');
+            if (issue.status === 'تم حلها' && issue.impactText) {
+                impactBox.style.display = 'block';
+                document.getElementById('modalImpactText').innerText = issue.impactText;
+            } else {
+                impactBox.style.display = 'none';
+            }
+
+            // إظهار لوحة تحكم الأدمن إن كان مسجل دخول
+            const adminBox = document.getElementById('adminControlsBox');
+            if (isAdmin) {
+                adminBox.style.display = 'flex';
+                document.getElementById('adminStatusSelect').value = issue.status;
+                document.getElementById('adminVerifiedCheck').checked = !!issue.verified;
+                document.getElementById('adminVolunteerCheck').checked = !!issue.volunteerArrived;
+                document.getElementById('adminImplementingCheck').checked = !!issue.implementing;
+                document.getElementById('adminImpactInput').value = issue.impactText || '';
+            } else {
+                adminBox.style.display = 'none';
+            }
+
+            const commentsContainer = document.getElementById('modalCommentsContainer');
+            commentsContainer.innerHTML = '';
+            if (issue.comments) {
+                const sortedComments = Object.values(issue.comments).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                sortedComments.forEach(c => {
+                    const cNode = document.createElement('div');
+                    cNode.className = 'comment-box';
+                    cNode.innerHTML = `${escapeHTML(c.text)}<span class="comment-time">${timeAgo(c.timestamp)}</span>`;
+                    commentsContainer.appendChild(cNode);
+                });
+            } else {
+                commentsContainer.innerHTML = '<p style="font-size:0.8rem; opacity:0.5;">لا توجد تحديثات ميدانية بعد، كن أول من يدعم أو يعلق.</p>';
+            }
+
+            openModal('issueDetailModal');
+        }
+
+        // ---------- تحكم الأدمن: تغيير الحالة وحذف القضية ----------
+        document.getElementById('adminStatusSelect').onchange = (e) => {
+            if (!currentViewingIssueId || !isAdmin) return;
+            const updates = {};
+            updates[`/global_issues/${currentViewingIssueId}/status`] = e.target.value;
+            update(ref(db), updates).then(() => showToast('تم تحديث حالة القضية'));
+        };
+
+        document.getElementById('adminDeleteBtn').onclick = () => {
+            if (!currentViewingIssueId || !isAdmin) return;
+            if (!confirm('هل أنت متأكد من حذف هذه القضية نهائياً؟')) return;
+            remove(ref(db, `global_issues/${currentViewingIssueId}`)).then(() => {
+                closeAllModals();
+                showToast('تم حذف القضية');
+            });
+        };
+
+        // ---------- تحكم الأدمن: علامات مسار القضية (تحقق / وصول متطوع / تنفيذ) ----------
+        function bindAdminFlag(checkboxId, fieldName, label) {
+            document.getElementById(checkboxId).onchange = (e) => {
+                if (!currentViewingIssueId || !isAdmin) return;
+                const updates = {};
+                updates[`/global_issues/${currentViewingIssueId}/${fieldName}`] = e.target.checked;
+                update(ref(db), updates).then(() => showToast(`تم تحديث: ${label}`));
+            };
+        }
+        bindAdminFlag('adminVerifiedCheck', 'verified', 'تم التحقق');
+        bindAdminFlag('adminVolunteerCheck', 'volunteerArrived', 'وصل متطوع');
+        bindAdminFlag('adminImplementingCheck', 'implementing', 'جاري التنفيذ');
+
+        // ---------- تحكم الأدمن: حفظ نص الأثر الملموس ----------
+        document.getElementById('adminSaveImpactBtn').onclick = () => {
+            if (!currentViewingIssueId || !isAdmin) return;
+            const txt = document.getElementById('adminImpactInput').value.trim();
+            const updates = {};
+            updates[`/global_issues/${currentViewingIssueId}/impactText`] = txt;
+            update(ref(db), updates).then(() => showToast('تم حفظ الأثر الملموس ✅'));
+        };
+
+        // 4. معالجة حفظ القضايا الجديدة مع رفع الصورة وجلب العنوان الحقيقي
+        document.getElementById('saveNewIssueBtn').onclick = async () => {
+            const title = document.getElementById('newTitleInput').value.trim();
+            const desc = document.getElementById('newDescInput').value.trim();
+            const status = document.getElementById('newStatusInput').value;
+            const category = document.getElementById('newCategoryInput').value;
+            const saveBtn = document.getElementById('saveNewIssueBtn');
+            const saveLabel = document.getElementById('saveBtnLabel');
+
+            if (!activeCoords || !title || !desc) {
+                showToast('الرجاء الضغط على الخريطة أولاً وملء كافة الحقول الأساسية');
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveLabel.innerHTML = '<span class="spinner"></span> جاري النشر...';
+
+            const calculatedAddress = await fetchHumanReadableAddress(activeCoords.lat, activeCoords.lng);
+            let imageUrl = null;
+            if (selectedImageBase64) {
+                imageUrl = await uploadImageToImgBB(selectedImageBase64);
+            }
+
+            const newIssueData = {
+                title, description: desc,
+                lat: activeCoords.lat, lng: activeCoords.lng,
+                status, category,
+                address: calculatedAddress,
+                image: imageUrl,
+                upvotes: 0,
+                timestamp: Date.now()
+            };
+
+            push(ref(db, 'global_issues'), newIssueData).then(() => {
+                closeAllModals();
+                document.getElementById('newTitleInput').value = '';
+                document.getElementById('newDescInput').value = '';
+                document.getElementById('newCoordsInput').value = '';
+                document.getElementById('newImageInput').value = '';
+                document.getElementById('newImagePreview').style.display = 'none';
+                activeCoords = null;
+                selectedImageBase64 = null;
+                saveBtn.disabled = false;
+                saveLabel.innerText = 'نشر القضية على الخريطة العالمية';
+                showToast('تم نشر القضية بنجاح 🎉');
+            }).catch(() => {
+                saveBtn.disabled = false;
+                saveLabel.innerText = 'نشر القضية على الخريطة العالمية';
+                showToast('حدث خطأ أثناء الحفظ، حاول مرة أخرى');
+            });
+        };
+
+        // 5. نظام التصويت والدعم الفوري المباشر
+        document.getElementById('upvoteBtn').onclick = () => {
+            if (!currentViewingIssueId) return;
+            const currentCount = parseInt(document.getElementById('modalUpvotesCount').innerText) || 0;
+            const updates = {};
+            updates[`/global_issues/${currentViewingIssueId}/upvotes`] = currentCount + 1;
+            update(ref(db), updates).then(() => {
+                document.getElementById('modalUpvotesCount').innerText = currentCount + 1;
+            });
+        };
+
+        // 5.b مشاركة رابط القضية (Web Share API مع خيار احتياطي للنسخ)
+        document.getElementById('shareBtn').onclick = async () => {
+            if (!currentViewingIssueId) return;
+            const shareUrl = `${window.location.origin}${window.location.pathname}#issue=${currentViewingIssueId}`;
+            const title = document.getElementById('modalIssueTitle').innerText;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: `قضية: ${title}`, url: shareUrl });
+                } catch (e) { /* المستخدم لغى المشاركة */ }
+            } else {
+                try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    showToast('تم نسخ رابط القضية 📋');
+                } catch (e) {
+                    prompt('انسخ الرابط يدوياً:', shareUrl);
+                }
+            }
+        };
+
+        // 6. نظام كتابة وحفظ التعليقات والتحديثات الميدانية
+        document.getElementById('submitCommentBtn').onclick = () => {
+            const input = document.getElementById('commentInput');
+            const txt = input.value.trim();
+            if (!txt || !currentViewingIssueId) return;
+
+            push(ref(db, `global_issues/${currentViewingIssueId}/comments`), {
+                text: txt,
+                timestamp: Date.now()
+            }).then(() => { input.value = ''; });
+        };
+        document.getElementById('commentInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('submitCommentBtn').click();
+        });
+
+        // إدارة فتح وإغلاق النوافذ المنبثقة
+        function openModal(id) {
+            document.getElementById('modalBackdrop').style.display = 'block';
+            document.getElementById(id).style.display = 'flex';
+        }
+
+        function closeAllModals() {
+            document.getElementById('modalBackdrop').style.display = 'none';
+            ['newReportModal', 'issueDetailModal', 'adminLoginModal', 'leaderboardModal'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            currentViewingIssueId = null;
+        }
+
+        document.getElementById('openReportModalBtn').onclick = () => openModal('newReportModal');
+        document.getElementById('closeReportModalBtn').onclick = closeAllModals;
+        document.getElementById('closeDetailModalBtn').onclick = closeAllModals;
+        document.getElementById('modalBackdrop').onclick = closeAllModals;
+
+        // زر إظهار/إخفاء القائمة الجانبية على الموبايل
+        document.getElementById('mobileToggleBtn').onclick = () => {
+            const sidebar = document.getElementById('sidebarPanel');
+            sidebar.classList.toggle('open');
+            const icon = document.querySelector('#mobileToggleBtn i');
+            icon.className = sidebar.classList.contains('open') ? 'fa-solid fa-xmark' : 'fa-solid fa-list';
+        };
+
+        // فتح قضية مباشرة عبر رابط مشاركة (#issue=ID) عند تحميل الصفحة
+        window.addEventListener('load', () => {
+            const hash = window.location.hash;
+            if (hash.startsWith('#issue=')) {
+                const targetId = hash.replace('#issue=', '');
+                const waitForData = setInterval(() => {
+                    if (rawIssuesData[targetId]) {
+                        clearInterval(waitForData);
+                        focusAndFlyToIssue(targetId, rawIssuesData[targetId]);
+                    }
+                }, 500);
+                setTimeout(() => clearInterval(waitForData), 8000);
+            }
+        });
+    </script>
+</body>
+</html>
